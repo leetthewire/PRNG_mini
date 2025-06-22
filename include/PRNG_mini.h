@@ -15,3 +15,8 @@ int pm_get_random_bytes(void** buffer, int length);
 PRNG_MINI_API
 #endif
 int pm_get_random_integers(int** integers, int size, int min, int max);
+
+#if defined(_WIN32)
+PRNG_MINI_API
+#endif
+int pm_get_guid_std(char** buffer);
