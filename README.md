@@ -1,5 +1,5 @@
 # PRNG_mini
-is a C-based pseudo-random number generator ( PRNG ). Supports Flutter, C# and Python. The random generator fits for games, cryptography and desktop software. Tags: random, generator, mobile, desktop, ios, android, macos, game, database, guid, uid, id, prng, number
+is a C-based pseudo-random number generator ( PRNG ). Supports Flutter, C# and Python. The random generator fits for games, cryptography and desktop and mobile software. Tags: random, generator, mobile, desktop, ios, android, macos, game, database, guid, uid, id, prng, number
 
 ---
 
