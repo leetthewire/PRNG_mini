@@ -78,3 +78,14 @@ endif()
 if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Windows")
     set_property(TARGET PRNG_mini PROPERTY POSITION_INDEPENDENT_CODE ON)
 endif()
+
+if (WIN32)
+    target_link_libraries(PRNG_mini PRIVATE bcrypt)
+endif()
+
+if(WIN32)
+    target_compile_options(PRNG_mini PRIVATE
+        $<$<CONFIG:Debug>:/MTd>
+        $<$<CONFIG:Release>:/MT>
+    )
+endif()
