@@ -74,12 +74,18 @@ int random_device_bytes_unix(void* buffer, size_t length) {
 /// 
 int pm_get_random_bytes(void** buffer, int length)
 {
-    int result = -1;
+    if (buffer == NULL)
+    {
+        return -1;
+    }
+
     if (*buffer == NULL)
     {
         *buffer = malloc(length);
         return -2;
     }
+    int result = -1;
+
 #ifdef WIN32
     result = pm_random_device_bytes_windows(*buffer, length);
 #else
@@ -104,7 +110,7 @@ int pm_get_random_bytes(void** buffer, int length)
 /// 
 int pm_get_random_integers(int** integers, int size, int min, int max)
 {
-    if (size <= 0 || min > max)
+    if (integers == NULL || size <= 0 || min > max)
         return -1; // invalid arguments
 
     if (*integers == NULL)
@@ -132,4 +138,56 @@ int pm_get_random_integers(int** integers, int size, int min, int max)
 
     free(byte_buffer);
     return 0; // success
+}
+
+/// 
+/// @brief Generates a GUID string into a provided buffer using random hex digits.
+/// @details Standard-based GUID generated using PRNG_mini. 36 length, 32 symbols.
+///          Internal memory allocation adds a null terminator.
+/// @param Pointer to memory of Pointer to memory where GUID will be written.
+/// @return 0 on success, negative error code on failure:
+///         -1 if the buffer pointer itself is NULL,
+///         -2 if memory allocation fails.
+/// 
+int pm_get_guid_std(char** buffer) {
+
+    if (buffer == NULL)
+        return -1;
+
+    if (*buffer == NULL)
+    {
+        *buffer = malloc(sizeof(char) * 37); //std_length for a guid + /null terminator
+        if (*buffer == NULL)
+            return -2; // memory allocation failed
+        memset(*buffer, 0, 37);
+    }
+
+    char* output_buffer = *buffer;
+
+    int std_length = 32;
+
+    int* integers_buffer = NULL;
+    pm_get_random_integers(&integers_buffer, 32, 0, 15);
+    int int_buff_iter = 0;
+
+    for (int i = 0; i < std_length; i++) {
+        if (i == 8 || i == 13 || i == 18 || i == 23) {
+            output_buffer[std_length] = "-";
+            std_length = std_length + 1;
+        }
+        else {
+            int value = 0;
+            value = integers_buffer[int_buff_iter];
+            if (value <= 9)
+                output_buffer[std_length] = (value + 48);
+            else
+                output_buffer[std_length] = (value + 97 - 10);
+
+            int_buff_iter++;
+        }
+    }
+
+    free(integers_buffer);
+
+    return 0;
 }
