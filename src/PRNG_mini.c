@@ -45,7 +45,8 @@ int pm_random_device_bytes_windows(void* buffer, int length)
 ///         -2 if /dev/urandom could not be opened,
 ///         -3 if reading from /dev/urandom failed or was incomplete.
 ///
-int random_device_bytes_unix(void* buffer, size_t length) {
+int random_device_bytes_unix(void* buffer, size_t length) 
+{
     if (!buffer || length == 0)
         return -1;
 
@@ -149,7 +150,8 @@ int pm_get_random_integers(int** integers, int size, int min, int max)
 ///         -1 if the buffer pointer itself is NULL,
 ///         -2 if memory allocation fails.
 /// 
-int pm_get_guid_std(char** buffer) {
+int pm_get_guid_std(char** buffer) 
+{
 
     if (buffer == NULL)
         return -1;
@@ -190,4 +192,129 @@ int pm_get_guid_std(char** buffer) {
     free(integers_buffer);
 
     return 0;
+}
+
+///
+/// @brief Generates a 16-digit hexadecimal license key with dashes, matching a given checksum signature.
+/// @param output_key Pointer to a char* that will be allocated and filled with the generated key (format: XXXX-XXXX-XXXX-XXXX).
+/// @param signature Target checksum value; the sum of all 16 hex digits will be adjusted to match this value.
+/// @return 0 on success, -1 if output pointer is NULL, -2 if random generation fails, -3 if memory allocation fails.
+///
+int pm_get_id_hex(char** buffer, int size)
+{
+    if (buffer == NULL)
+        return -1;
+
+    if (*buffer == NULL)
+    {
+        *buffer = malloc(sizeof(char) * size + 1); //std_length for a guid + /null terminator
+        if (*buffer == NULL)
+            return -2; // memory allocation failed
+        memset(*buffer, 0, size + 1);
+    }
+
+    char* output_buffer = *buffer;
+
+    int* integers_buffer = NULL;
+    pm_get_random_integers(&integers_buffer, size, 0, 15);
+    int int_buff_iter = 0;
+
+    for (int i = 0; i < size; i++) {
+         int value = 0;
+         value = integers_buffer[size];
+         if (value <= 9)
+             output_buffer[size] = (value + 48);
+         else
+             output_buffer[size] = (value + 97 - 10);
+    }
+
+    free(integers_buffer);
+
+    return 0;
+}
+
+///
+/// @brief Validates a 16-digit hex license key.
+/// @param signature Target checksum value to verify against (use any number for a key list).
+/// @param key Null-terminated string containing the license key (e.g., "8A1F-B9C0-D4E0-3D5A").
+/// @return 1 if the key is valid (checksum matches), 0 if invalid or input is NULL.
+///
+int pm_generate_license_key(char** output_key, int signature) 
+{
+    if (output_key == NULL)
+        return -1;
+
+    const int size = 16;              // number of hex digits
+    const int formatted_size = 19;    // 16 digits + 3 dashes + null terminator
+
+    // Allocate output string
+    *output_key = malloc(formatted_size);
+    if (*output_key == NULL) {
+        return -3;
+    }
+
+    int* buffer = NULL;
+    if (pm_get_random_integers(&buffer, size, 0, 15) != 0 || buffer == NULL)
+        return -2;
+
+    // Compute initial checksum
+    int current_sum = 0;
+    for (int i = 0; i < size; i++)
+        current_sum += buffer[i];
+
+    // Adjust to match the requested signature
+    int diff = signature - current_sum;
+    while (diff != 0) {
+        for (int i = 0; i < size && diff != 0; i++) {
+            if (diff > 0 && buffer[i] < 15) {
+                buffer[i]++;
+                diff--;
+            }
+            else if (diff < 0 && buffer[i] > 0) {
+                buffer[i]--;
+                diff++;
+            }
+        }
+    }
+
+    // Format the key as "xxxx-xxxx-xxxx-xxxx"
+    int out_idx = 0;
+    for (int i = 0; i < size; i++) {
+        int val = buffer[i];
+        (*output_key)[out_idx++] = (val < 10) ? ('0' + val) : ('A' + val - 10);
+        if ((i + 1) % 4 == 0 && i + 1 != size)
+            (*output_key)[out_idx++] = '-';
+    }
+
+    (*output_key)[out_idx] = '\0';
+    free(buffer);
+    return 0;
+}
+
+///
+/// @brief Validates a 16-digit hex license key.
+/// @param signature Target checksum value to verify against (use any number for a key list).
+/// @param key Null-terminated string containing the license key (e.g., "8A1F-B9C0-D4E0-3D5A").
+/// @return 1 if the key is valid (checksum matches), 0 if invalid or input is NULL.
+///
+int pm_validate_license_key(const char* key, int signature)
+{
+    if (key == NULL)
+        return 0;
+
+    int validate_signature = 0;
+
+    for (size_t i = 0; i < strlen(key); ++i)
+    {
+        char c = key[i];
+
+        if (c >= '0' && c <= '9')
+            validate_signature += c - '0';
+        else if (c >= 'A' && c <= 'F')
+            validate_signature += c - 'A' + 10;
+        else if (c >= 'a' && c <= 'f')
+            validate_signature += c - 'a' + 10;
+    }
+
+    return (validate_signature == signature);
 }
