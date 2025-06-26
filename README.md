@@ -13,11 +13,12 @@ Designed for cryptographic applications:
 
 ---
 
-## Extra Functionality (Work in Progress)
+## Extra Functionality
 
 - Session ID generation  
 - GUID generation  
-- Random number generation  
+- Random number generation
+- License key generation and validation
 
 ---
 
