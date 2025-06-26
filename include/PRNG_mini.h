@@ -55,3 +55,39 @@ int pm_get_random_integers(int** integers, int size, int min, int max);
 PRNG_MINI_API
 #endif
 int pm_get_guid_std(char** buffer);
+
+/// 
+/// @brief Generates an ID string in HEX format. Saves into a provided buffer.
+/// @details Unbounded ID generated using PRNG_mini.
+///          Internal memory allocation adds a null terminator.
+/// @param Pointer to memory of Pointer to memory where GUID will be written.
+/// @return 0 on success, negative error code on failure:
+///         -1 if the buffer pointer itself is NULL,
+///         -2 if memory allocation fails.
+/// 
+#if defined(_WIN32)
+PRNG_MINI_API
+#endif
+int pm_get_id_hex(char** buffer, int size);
+
+///
+/// @brief Validates a 16-digit hex license key.
+/// @param signature Target checksum value to verify against (use any number for a key list).
+/// @param key Null-terminated string containing the license key (e.g., "8A1F-B9C0-D4E0-3D5A").
+/// @return 1 if the key is valid (checksum matches), 0 if invalid or input is NULL.
+///
+#if defined(_WIN32)
+PRNG_MINI_API
+#endif
+int pm_generate_license_key(char** output_key, int signature);
+
+///
+/// @brief Validates a 16-digit hex license key.
+/// @param signature Target checksum value to verify against (use any number for a key list).
+/// @param key Null-terminated string containing the license key (e.g., "8A1F-B9C0-D4E0-3D5A").
+/// @return 1 if the key is valid (checksum matches), 0 if invalid or input is NULL.
+///
+#if defined(_WIN32)
+PRNG_MINI_API
+#endif
+int pm_validate_license_key(const char* key, int signature);
