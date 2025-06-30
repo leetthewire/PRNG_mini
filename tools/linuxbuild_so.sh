@@ -10,6 +10,7 @@ cd ./build/
 cmake \
   -DSHARED_LIBRARY:STRING=True \
   -DCMAKE_EXE_LINKER_FLAGS="-Wl,-rpath='\$ORIGIN'" \
+  -DTESTS:STRING=True \
   ..
   
 cmake --build . --config Release

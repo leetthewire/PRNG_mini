@@ -31,3 +31,17 @@ else()
 endif()
 
 add_subdirectory(src)
+
+# Add test directories if TESTS is enabled
+if (TESTS)
+    file(GLOB_RECURSE TESTS_FOLDERS
+        RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/**/CMakeLists.txt)
+
+    foreach(TESTS_FOLDER ${TESTS_FOLDERS})
+        get_filename_component(relative_file_path ${TESTS_FOLDER} DIRECTORY)
+
+        # Add each test subdirectory
+        add_subdirectory(${relative_file_path})
+    endforeach()
+endif()

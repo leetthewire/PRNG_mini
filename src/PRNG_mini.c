@@ -83,7 +83,8 @@ int pm_get_random_bytes(void** buffer, int length)
     if (*buffer == NULL)
     {
         *buffer = malloc(length);
-        return -2;
+        if (*buffer == NULL)
+            return -2; // memory allocation failed
     }
     int result = -1;
 
