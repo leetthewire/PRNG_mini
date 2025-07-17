@@ -12,5 +12,5 @@ fi
 
 cd ./build/
 
-cmake -DSHARED_LIBRARY:STRING=False ..
+cmake -DSHARED_LIBRARY:STRING=False -DTESTS:STRING=True ..
 cmake --build . --config Release

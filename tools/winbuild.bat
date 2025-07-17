@@ -5,7 +5,7 @@ echo %sdkfolder%
 mkdir "%sdkfolder%build"
 cd "%sdkfolder%build"
 
-cmake -DSHARED_LIBRARY:STRING=False
+cmake -DSHARED_LIBRARY:STRING=False -DTESTS:STRING=True ..
 cmake --build . --config Release
 
 goto EOF 

@@ -7,6 +7,16 @@ project(
   DESCRIPTION "C-based pseudo-random generator"
   LANGUAGES C)
 
+if (MSVC)
+    # Debug: Static runtime with debug info
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDebug" CACHE STRING "" FORCE)
+
+    # Detect if we're building Release instead
+    if (CMAKE_BUILD_TYPE STREQUAL "Release")
+        set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded" CACHE STRING "" FORCE)
+    endif()
+endif()
+
 set(CMAKE_SUPPRESS_REGENERATION true)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/_output/)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/_output/)
@@ -31,3 +41,17 @@ else()
 endif()
 
 add_subdirectory(src)
+
+# Add test directories if TESTS is enabled
+if (TESTS)
+    file(GLOB_RECURSE TESTS_FOLDERS
+        RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/**/CMakeLists.txt)
+
+    foreach(TESTS_FOLDER ${TESTS_FOLDERS})
+        get_filename_component(relative_file_path ${TESTS_FOLDER} DIRECTORY)
+
+        # Add each test subdirectory
+        add_subdirectory(${relative_file_path})
+    endforeach()
+endif()
