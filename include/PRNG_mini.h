@@ -6,6 +6,17 @@
 #endif
 #endif
 
+/// 
+/// @brief Safe zeroization and free of a memory
+/// @details Use this function to prevent a heap error.
+/// @param Pointer to memory to be released.
+/// @param Size to zeroize. 0 to parameters disables zeroization.
+/// 
+#if defined(_WIN32)
+PRNG_MINI_API
+#endif
+void pm_free(void* buffer, int size);
+
 ///
 /// @brief PRNG mini - device based - random bytes generation
 /// @details Fill the provided buffer with cryptographically secure random bytes.
@@ -80,6 +91,11 @@ int pm_get_id_hex(char** buffer, int size);
 PRNG_MINI_API
 #endif
 int pm_generate_license_key(char** output_key, int signature);
+
+#if defined(_WIN32)
+PRNG_MINI_API
+#endif
+int gen_key_c(char** out_key, int signature);
 
 ///
 /// @brief Validates a 16-digit hex license key.

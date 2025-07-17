@@ -1,5 +1,6 @@
 #include <PRNG_mini.h>
 #include <stdio.h>
+#include <stdlib.h>
 //#include <stdint.h>
 //#include <stddef.h>
 
@@ -11,13 +12,15 @@ int main(int argc,char** argv)
   printf("Usage: generate_pki.exe -out private_key.txt public_key.txt\n");
   printf("-----------------------------------------------------------\n\n");
 
-  char* license_key = 0; // 19 bytes will be allocated
+  char* license_key = NULL; // 19 bytes will be allocated
   int signature = 210;
 
   for (int i = 0; i < 3; i++)
   {
-      int result = pm_generate_license_key(&license_key, signature);
+      int output_size = gen_key_c(&license_key, signature);
 
       printf("%s\n", license_key);
+      pm_free(license_key, output_size);
+      license_key = NULL;
   }
 }

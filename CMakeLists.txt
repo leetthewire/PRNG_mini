@@ -7,6 +7,16 @@ project(
   DESCRIPTION "C-based pseudo-random generator"
   LANGUAGES C)
 
+if (MSVC)
+    # Debug: Static runtime with debug info
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDebug" CACHE STRING "" FORCE)
+
+    # Detect if we're building Release instead
+    if (CMAKE_BUILD_TYPE STREQUAL "Release")
+        set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded" CACHE STRING "" FORCE)
+    endif()
+endif()
+
 set(CMAKE_SUPPRESS_REGENERATION true)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/_output/)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/_output/)

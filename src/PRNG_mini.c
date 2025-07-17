@@ -60,6 +60,18 @@ int random_device_bytes_unix(void* buffer, size_t length)
 }
 #endif
 
+/// 
+/// @brief Safe zeroization and free of a memory
+/// @details Use this function to prevent a heap error.
+/// @param Pointer to memory to be released.
+/// @param Size to zeroize. 0 to parameters disables zeroization.
+/// 
+void pm_free(void* buffer, int size)
+{
+    memset(buffer, 0, size);
+    free(buffer);
+}
+
 ///
 /// @brief PRNG mini - device based - random bytes generation
 /// @details Fill the provided buffer with cryptographically secure random bytes.
@@ -124,7 +136,7 @@ int pm_get_random_integers(int** integers, int size, int min, int max)
 
     // Allocate temporary random bytes buffer
     int byte_len = size * sizeof(int);
-    void* byte_buffer = NULL;
+    int* byte_buffer = NULL;
     int result = pm_get_random_bytes(&byte_buffer, byte_len);
     if (result != 0 || byte_buffer == NULL)
         return -3; // random byte generation failed
@@ -140,6 +152,24 @@ int pm_get_random_integers(int** integers, int size, int min, int max)
 
     free(byte_buffer);
     return 0; // success
+}
+
+int pm_get_random_int(int min, int max)
+{
+    // Allocate temporary random bytes buffer
+    int byte_len = sizeof(int);
+    int* byte_buffer = NULL;
+    int result = pm_get_random_bytes(&byte_buffer, byte_len);
+    if (result != 0 || byte_buffer == NULL)
+        return -3; // random byte generation failed
+
+    // Convert bytes to integers in [min, max]
+    int range = max - min + 1;
+    int* raw = (int*)byte_buffer;
+    uint32_t val = ((uint32_t)raw[0]) & 0x7FFFFFFF; // ensure non-negative bytes to prevent overflows
+
+    pm_free(byte_buffer, byte_len);
+    return (int)(min + (val % range)); // success
 }
 
 /// 
@@ -235,10 +265,13 @@ int pm_get_id_hex(char** buffer, int size)
 }
 
 ///
-/// @brief Validates a 16-digit hex license key.
-/// @param signature Target checksum value to verify against (use any number for a key list).
-/// @param key Null-terminated string containing the license key (e.g., "8A1F-B9C0-D4E0-3D5A").
-/// @return 1 if the key is valid (checksum matches), 0 if invalid or input is NULL.
+/// @brief generates a 16-digit hex license key.
+/// @param Output pointer of a memory to store the license key (e.g., "8A1F-B9C0-D4E0-3D5A").
+/// @param signature Target checksum value to perform the key.
+/// @return key length on success, negative error code on failure:
+///         -1 if the buffer pointer itself is NULL,
+///         -2 if random integer generation fails.
+///         -3 if memory allocation fails.
 ///
 int pm_generate_license_key(char** output_key, int signature) 
 {
@@ -246,7 +279,7 @@ int pm_generate_license_key(char** output_key, int signature)
         return -1;
 
     const int size = 16;              // number of hex digits
-    const int formatted_size = 19;    // 16 digits + 3 dashes + null terminator
+    const int formatted_size = 20;    // 16 digits + 3 dashes + null terminator
 
     // Allocate output string
     *output_key = malloc(formatted_size);
@@ -287,9 +320,111 @@ int pm_generate_license_key(char** output_key, int signature)
             (*output_key)[out_idx++] = '-';
     }
 
-    (*output_key)[out_idx] = '\0';
-    free(buffer);
-    return 0;
+    (*output_key)[formatted_size - 1] = '\0';
+    pm_free(buffer, size);
+    return formatted_size;
+}
+
+int gen_key_c(char** out_key, int signature)
+{
+    if (out_key == NULL)
+        return -1;
+
+    const int size = 16;
+    const int formatted_size = 20; // 16 chars + 3 dashes + null terminator
+
+    int key_raw_data[16];
+    for (int i = 0; i < size; i++)
+        key_raw_data[i] = 18;
+
+    int change_amount = signature - (18 * size);
+    int to_increment = 1;
+    if (change_amount < 0)
+    {
+        to_increment = 0;
+        change_amount = -change_amount;
+    }
+
+    // Adjust each symbol based on influence (1–4)
+    while (change_amount > 0)
+    {
+        int influence = pm_get_random_int(1, 4);
+        if (influence > change_amount)
+            influence = change_amount;
+        change_amount -= influence;
+
+        int index = pm_get_random_int(0, 15);
+
+        if (to_increment)
+        {
+            while (key_raw_data[index] + influence > 36)
+                index = pm_get_random_int(0, 15);
+            key_raw_data[index] += influence;
+        }
+        else
+        {
+            while (key_raw_data[index] - influence < 1)
+                index = pm_get_random_int(0, 15);
+            key_raw_data[index] -= influence;
+        }
+    }
+
+    // Random redistribution of value
+    int repeats = pm_get_random_int(500, 12000);
+    for (int i = 0; i < repeats; i++)
+    {
+        int a = pm_get_random_int(0, 15);
+        int b = pm_get_random_int(0, 15);
+
+        while (a == b || key_raw_data[a] <= 1 || key_raw_data[b] >= 36)
+        {
+            a = pm_get_random_int(0, 15);
+            b = pm_get_random_int(0, 15);
+        }
+
+        key_raw_data[a]--;
+        key_raw_data[b]++;
+    }
+
+    // Allocate final formatted string
+    *out_key = (char*)malloc(formatted_size);
+    if (*out_key == NULL)
+        return -2;
+
+    int idx = 0;
+    for (int i = 0; i < size; i++)
+    {
+        int val = key_raw_data[i];
+        char ch;
+
+        if (val >= 1 && val <= 10)
+            ch = (char)('0' + val - 1);      // '1' to '9', '10' = ':'
+        else if (val >= 11 && val <= 36)
+            ch = (char)('A' + (val - 11));   // 'A' to 'Z'
+        else
+            ch = '?'; // out-of-bounds fallback
+
+        (*out_key)[idx++] = ch;
+
+        if ((i + 1) % 4 == 0 && i + 1 != size)
+            (*out_key)[idx++] = '-';
+    }
+
+    (*out_key)[idx] = '\0';
+
+    // Final checksum validation
+    int final_sum = 0;
+    for (int i = 0; i < size; i++)
+        final_sum += key_raw_data[i];
+
+    if (final_sum != signature)
+    {
+        pm_free(*out_key, formatted_size);
+        *out_key = NULL;
+        return -3; // Signature mismatch
+    }
+
+    return formatted_size; // Success
 }
 
 ///
