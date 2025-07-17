@@ -68,7 +68,10 @@ int random_device_bytes_unix(void* buffer, size_t length)
 /// 
 void pm_free(void* buffer, int size)
 {
-    memset(buffer, 0, size);
+    if (size != 0)
+    {
+        memset(buffer, 0, size);
+    }
     free(buffer);
 }
 
@@ -150,7 +153,7 @@ int pm_get_random_integers(int** integers, int size, int min, int max)
         (*integers)[i] = min + (val % range);
     }
 
-    free(byte_buffer);
+    pm_free(byte_buffer, byte_len);
     return 0; // success
 }
 
@@ -220,7 +223,7 @@ int pm_get_guid_std(char** buffer)
         }
     }
 
-    free(integers_buffer);
+    pm_free(integers_buffer, 32 * sizeof(int));
 
     return 0;
 }
@@ -259,7 +262,7 @@ int pm_get_id_hex(char** buffer, int size)
              output_buffer[size] = (value + 97 - 10);
     }
 
-    free(integers_buffer);
+    pm_free(integers_buffer, size * sizeof(int));
 
     return 0;
 }
@@ -273,59 +276,7 @@ int pm_get_id_hex(char** buffer, int size)
 ///         -2 if random integer generation fails.
 ///         -3 if memory allocation fails.
 ///
-int pm_generate_license_key(char** output_key, int signature) 
-{
-    if (output_key == NULL)
-        return -1;
-
-    const int size = 16;              // number of hex digits
-    const int formatted_size = 20;    // 16 digits + 3 dashes + null terminator
-
-    // Allocate output string
-    *output_key = malloc(formatted_size);
-    if (*output_key == NULL) {
-        return -3;
-    }
-
-    int* buffer = NULL;
-    if (pm_get_random_integers(&buffer, size, 0, 15) != 0 || buffer == NULL)
-        return -2;
-
-    // Compute initial checksum
-    int current_sum = 0;
-    for (int i = 0; i < size; i++)
-        current_sum += buffer[i];
-
-    // Adjust to match the requested signature
-    int diff = signature - current_sum;
-    while (diff != 0) {
-        for (int i = 0; i < size && diff != 0; i++) {
-            if (diff > 0 && buffer[i] < 15) {
-                buffer[i]++;
-                diff--;
-            }
-            else if (diff < 0 && buffer[i] > 0) {
-                buffer[i]--;
-                diff++;
-            }
-        }
-    }
-
-    // Format the key as "xxxx-xxxx-xxxx-xxxx"
-    int out_idx = 0;
-    for (int i = 0; i < size; i++) {
-        int val = buffer[i];
-        (*output_key)[out_idx++] = (val < 10) ? ('0' + val) : ('A' + val - 10);
-        if ((i + 1) % 4 == 0 && i + 1 != size)
-            (*output_key)[out_idx++] = '-';
-    }
-
-    (*output_key)[formatted_size - 1] = '\0';
-    pm_free(buffer, size);
-    return formatted_size;
-}
-
-int gen_key_c(char** out_key, int signature)
+int pm_get_license_key(char** out_key, int signature)
 {
     if (out_key == NULL)
         return -1;
