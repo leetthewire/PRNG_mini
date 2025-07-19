@@ -7,6 +7,7 @@ typedef struct {
     const char* input_file;
     const char* output_file;
     int signature;
+    int keys_number;
 } Options;
 
 void print_usage()
@@ -15,7 +16,7 @@ void print_usage()
     printf("\tLicense Key generation and validation\n\n");
     printf("-----------------------------------------------------------\n");
     printf("Generation usage: license_key.exe -out file -sg signature\n");
-    printf("Validation usage: license_key.exe -in file -sg signature\n");
+    printf("Validation usage: license_key.exe -in file -sg signature -n keys_number\n");
     printf("Signature: an integer value between 1 and 254 (inclusive)\n");
     printf("-----------------------------------------------------------\n\n");
 }
@@ -25,6 +26,7 @@ void parse_arguments(int argc, char** argv, Options* opts)
     opts->input_file = "list.txt";
     opts->output_file = "list.txt";
     opts->signature = 210;
+    opts->keys_number = 10;
 
     for (int i = 1; i < argc - 1; ++i)
     {
@@ -40,10 +42,14 @@ void parse_arguments(int argc, char** argv, Options* opts)
         {
             opts->signature = atoi(argv[i + 1]);
         }
+        else if (strcmp(argv[i], "-n") == 0)
+        {
+            opts->keys_number = atoi(argv[i + 1]);
+        }
     }
 }
 
-void generate_license_keys(const char* filename, int signature)
+void generate_license_keys(const char* filename, int signature, int keys_number)
 {
     FILE* f = fopen(filename, "w");
     if (!f)
@@ -52,7 +58,7 @@ void generate_license_keys(const char* filename, int signature)
         exit(1);
     }
 
-    for (int i = 0; i < 10; i++)
+    for (int i = 0; i < keys_number; i++)
     {
         char* license_key = NULL;
         int size = pm_get_license_key(&license_key, signature);
@@ -121,7 +127,7 @@ int main(int argc, char** argv)
 
     if (opts.output_file)
     {
-        generate_license_keys(opts.output_file, opts.signature);
+        generate_license_keys(opts.output_file, opts.signature, opts.keys_number);
     }
     else if (opts.input_file)
     {
