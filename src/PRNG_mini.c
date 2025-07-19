@@ -45,7 +45,7 @@ int pm_random_device_bytes_windows(void* buffer, int length)
 ///         -2 if /dev/urandom could not be opened,
 ///         -3 if reading from /dev/urandom failed or was incomplete.
 ///
-int random_device_bytes_unix(void* buffer, size_t length) 
+int pm_random_device_bytes_unix(void* buffer, size_t length) 
 {
     if (!buffer || length == 0)
         return -1;
