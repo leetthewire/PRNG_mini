@@ -53,6 +53,19 @@ PRNG_MINI_API
 #endif
 int pm_get_random_integers(int** integers, int size, int min, int max);
 
+///
+/// @brief PRNG mini – device-based random integer generation
+/// @details Returns a randomly generated integer using cryptographically secure random bytes.
+/// Usage: int secure_integer = pm_get_random_int(...);
+/// @param min Minimum value of the range (inclusive).
+/// @param max Maximum value of the range (inclusive).
+/// @return A random integer on success.
+///
+#if defined(_WIN32)
+PRNG_MINI_API
+#endif
+int pm_get_random_int(int min, int max);
+
 /// 
 /// @brief Generates a GUID string into a provided buffer using random hex digits.
 /// @details Standard-based GUID generated using PRNG_mini. 36 length, 32 symbols.
