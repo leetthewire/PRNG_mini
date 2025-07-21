@@ -1,18 +1,18 @@
-#ifdef WIN32
+#include <string.h>
+#include <stdint.h>
+#include <stdio.h>
+
+#ifdef _WIN32
 #include <windows.h>
 #include <bcrypt.h>
-#include <stdint.h>
-#include <stdio.h>
 #else
 //Supported by Linux, MacOS, BSD, Android, iOS, Unix-Like OS
-#include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
 #include <unistd.h>
 #include <fcntl.h>
 #endif
 
-#ifdef WIN32
+#ifdef _WIN32
 ///
 /// @brief PRNG mini - device based - random bytes generation for Windows
 /// @details Fill the provided buffer with cryptographically secure random bytes.
@@ -68,6 +68,9 @@ int pm_random_device_bytes_unix(void* buffer, size_t length)
 /// 
 void pm_free(void* buffer, int size)
 {
+    if (buffer == NULL)
+        return;
+
     if (size != 0)
     {
         memset(buffer, 0, size);
@@ -109,6 +112,11 @@ int pm_get_random_bytes(void** buffer, int length)
     result = pm_random_device_bytes_unix(*buffer, length);
 #endif
 
+    if (result < 0)
+    {
+        pm_free(*buffer, length);
+    }
+
     return result;
 }
 
@@ -137,19 +145,25 @@ int pm_get_random_integers(int** integers, int size, int min, int max)
             return -2; // memory allocation failed
     }
 
-    // Allocate temporary random bytes buffer
-    int byte_len = size * sizeof(int);
-    int* byte_buffer = NULL;
+    int byte_len = sizeof(uint32_t) * size; // 4 bytes per integer (uint32_t)
+    unsigned char* byte_buffer = NULL;
+
     int result = pm_get_random_bytes(&byte_buffer, byte_len);
     if (result != 0 || byte_buffer == NULL)
         return -3; // random byte generation failed
 
-    // Convert bytes to integers in [min, max]
     int range = max - min + 1;
-    int* raw = (int*)byte_buffer;
+
     for (int i = 0; i < size; ++i)
     {
-        uint32_t val = ((uint32_t)raw[i]) & 0x7FFFFFFF; // ensure non-negative bytes to prevent overflows
+        // Assemble 4 bytes into a uint32_t (big endian)
+        uint32_t val = 0;
+        val |= (uint32_t)byte_buffer[i * 4 + 0] << 24;
+        val |= (uint32_t)byte_buffer[i * 4 + 1] << 16;
+        val |= (uint32_t)byte_buffer[i * 4 + 2] << 8;
+        val |= (uint32_t)byte_buffer[i * 4 + 3];
+
+        val &= 0x7FFFFFFF; // ensure non-negative
         (*integers)[i] = min + (val % range);
     }
 
@@ -157,22 +171,36 @@ int pm_get_random_integers(int** integers, int size, int min, int max)
     return 0; // success
 }
 
+///
+/// @brief PRNG mini – device-based random integer generation
+/// @details Returns a randomly generated integer using cryptographically secure random bytes.
+/// Usage: int secure_integer = pm_get_random_int(...);
+/// @param min Minimum value of the range (inclusive).
+/// @param max Maximum value of the range (inclusive).
+/// @return A random integer on success.
+///
 int pm_get_random_int(int min, int max)
 {
     // Allocate temporary random bytes buffer
-    int byte_len = sizeof(int);
-    int* byte_buffer = NULL;
+    int byte_len = sizeof(int); 
+    unsigned char* byte_buffer = NULL;
     int result = pm_get_random_bytes(&byte_buffer, byte_len);
     if (result != 0 || byte_buffer == NULL)
         return -3; // random byte generation failed
 
     // Convert bytes to integers in [min, max]
-    int range = max - min + 1;
-    int* raw = (int*)byte_buffer;
-    uint32_t val = ((uint32_t)raw[0]) & 0x7FFFFFFF; // ensure non-negative bytes to prevent overflows
+    uint32_t val = 0;
+    for (int i = 0; i < byte_len; ++i)
+    {
+        val = (val << 8) | byte_buffer[i];
+    }
 
     pm_free(byte_buffer, byte_len);
-    return (int)(min + (val % range)); // success
+
+    val &= 0x7FFFFFFF; // ensure non-negative
+
+    int range = max - min + 1;
+    return min + (val % range);
 }
 
 /// 
@@ -184,46 +212,48 @@ int pm_get_random_int(int min, int max)
 ///         -1 if the buffer pointer itself is NULL,
 ///         -2 if memory allocation fails.
 /// 
-int pm_get_guid_std(char** buffer) 
+int pm_get_guid_std(char** buffer)
 {
-
     if (buffer == NULL)
         return -1;
 
     if (*buffer == NULL)
     {
-        *buffer = malloc(sizeof(char) * 37); //std_length for a guid + /null terminator
+        *buffer = malloc(37); // 36 chars + null terminator
         if (*buffer == NULL)
-            return -2; // memory allocation failed
+            return -2;
         memset(*buffer, 0, 37);
     }
 
     char* output_buffer = *buffer;
 
-    int std_length = 32;
+    // Generate 16 random bytes (128 bits)
+    unsigned char uuid[16] = { 0 };
+    int* random_ints = NULL;
+    if (pm_get_random_integers(&random_ints, 16, 0, 255) != 0)
+        return -3;
 
-    int* integers_buffer = NULL;
-    pm_get_random_integers(&integers_buffer, 32, 0, 15);
-    int int_buff_iter = 0;
+    for (int i = 0; i < 16; ++i)
+        uuid[i] = (unsigned char)(random_ints[i] & 0xFF);
 
-    for (int i = 0; i < std_length; i++) {
-        if (i == 8 || i == 13 || i == 18 || i == 23) {
-            output_buffer[std_length] = "-";
-            std_length = std_length + 1;
-        }
-        else {
-            int value = 0;
-            value = integers_buffer[int_buff_iter];
-            if (value <= 9)
-                output_buffer[std_length] = (value + 48);
-            else
-                output_buffer[std_length] = (value + 97 - 10);
+    pm_free(random_ints, 16 * sizeof(int));
 
-            int_buff_iter++;
-        }
-    }
+    // Set UUID version and variant bits
+    uuid[6] = (uuid[6] & 0x0F) | 0x40; // Version 4
+    uuid[8] = (uuid[8] & 0x3F) | 0x80; // Variant 1 (RFC 4122)
 
-    pm_free(integers_buffer, 32 * sizeof(int));
+    // Format to 8-4-4-4-12
+    snprintf(output_buffer, 37,
+        "%02x%02x%02x%02x-"
+        "%02x%02x-"
+        "%02x%02x-"
+        "%02x%02x-"
+        "%02x%02x%02x%02x%02x%02x",
+        uuid[0], uuid[1], uuid[2], uuid[3],
+        uuid[4], uuid[5],
+        uuid[6], uuid[7],
+        uuid[8], uuid[9],
+        uuid[10], uuid[11], uuid[12], uuid[13], uuid[14], uuid[15]);
 
     return 0;
 }
@@ -236,12 +266,12 @@ int pm_get_guid_std(char** buffer)
 ///
 int pm_get_id_hex(char** buffer, int size)
 {
-    if (buffer == NULL)
+    if (buffer == NULL || size <= 0)
         return -1;
 
     if (*buffer == NULL)
     {
-        *buffer = malloc(sizeof(char) * size + 1); //std_length for a guid + /null terminator
+        *buffer = malloc(size + 1); // size hex chars + null terminator
         if (*buffer == NULL)
             return -2; // memory allocation failed
         memset(*buffer, 0, size + 1);
@@ -250,17 +280,18 @@ int pm_get_id_hex(char** buffer, int size)
     char* output_buffer = *buffer;
 
     int* integers_buffer = NULL;
-    pm_get_random_integers(&integers_buffer, size, 0, 15);
-    int int_buff_iter = 0;
+    if (pm_get_random_integers(&integers_buffer, size, 0, 15) != 0 || !integers_buffer)
+        return -3;
 
     for (int i = 0; i < size; i++) {
-         int value = 0;
-         value = integers_buffer[size];
-         if (value <= 9)
-             output_buffer[size] = (value + 48);
-         else
-             output_buffer[size] = (value + 97 - 10);
+        int value = integers_buffer[i];
+        if (value <= 9)
+            output_buffer[i] = value + '0';
+        else
+            output_buffer[i] = value - 10 + 'a';
     }
+
+    output_buffer[size] = '\0'; // ensure null-terminated
 
     pm_free(integers_buffer, size * sizeof(int));
 
@@ -300,22 +331,34 @@ int pm_get_license_key(char** out_key, int signature)
     while (change_amount > 0)
     {
         int influence = pm_get_random_int(1, 4);
+        if (influence < 1 || influence > 4)
+            return -2;
         if (influence > change_amount)
             influence = change_amount;
         change_amount -= influence;
 
         int index = pm_get_random_int(0, 15);
+        if (index < 0 || index > 15)
+            return -2;
 
         if (to_increment)
         {
             while (key_raw_data[index] + influence > 36)
+            {
                 index = pm_get_random_int(0, 15);
+                if (index < 0 || index > 15)
+                    return -2;
+            }
             key_raw_data[index] += influence;
         }
         else
         {
             while (key_raw_data[index] - influence < 1)
+            {
                 index = pm_get_random_int(0, 15);
+                if (index < 0 || index > 15)
+                    return -2;
+            }
             key_raw_data[index] -= influence;
         }
     }
@@ -325,12 +368,21 @@ int pm_get_license_key(char** out_key, int signature)
     for (int i = 0; i < repeats; i++)
     {
         int a = pm_get_random_int(0, 15);
+        if (a < 0 || a > 15)
+            return -2;
+
         int b = pm_get_random_int(0, 15);
+        if (b < 0 || b > 15)
+            return -2;
 
         while (a == b || key_raw_data[a] <= 1 || key_raw_data[b] >= 36)
         {
             a = pm_get_random_int(0, 15);
+            if (a < 0 || a > 15)
+                return -2;
             b = pm_get_random_int(0, 15);
+            if (b < 0 || b > 15)
+                return -2;
         }
 
         key_raw_data[a]--;
