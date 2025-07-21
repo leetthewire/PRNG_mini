@@ -19,6 +19,10 @@ Designed for cryptographic applications:
 - GUID generation  
 - Random number generation
 - License key generation and validation
+  - Example for signature `210`:
+    - MNE9-N37G-JC81-AB5B
+    - 3PF2-645Y-Q14J-Q5A9
+    - 20D4-G337-TXKG-EEI2
 
 ---
 
